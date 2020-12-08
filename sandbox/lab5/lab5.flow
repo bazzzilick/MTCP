@@ -10,6 +10,20 @@ initGrammar() {
 	});
 }
 
+str(e : Expr) -> string {
+	swithc(e) {
+		IntConst(c) : {
+			i2s(c);
+		}
+		Add(l, r) : {
+			"(" + str(l) + "+" + str(r) + ")";
+		}
+		Mul(l, r) : {
+			"(" + str(l) + "*" + str(r) + ")";
+		}
+	}
+}
+
 val(e : Expr) -> int {
 	switch(e) {
 		IntConst(c) : {
@@ -29,6 +43,8 @@ main() {
 	result = parsic(initGrammar(), " 3 *    4 + 5 ", defaultPegActions);
 
 	println(result);
+	println(str(result));
 	println(val(result));
+	
 	quit(0);
 }
