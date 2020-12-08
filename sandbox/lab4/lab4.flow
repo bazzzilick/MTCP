@@ -1,0 +1,23 @@
+import string;
+import ds/tree;
+
+inds2(arr : [int], m : int) -> [Pair<int, int>] {
+    mt = foldi(arr, makeTree(), \i, acc, n ->
+                switch(lookupTree(acc, n)) {
+                    Some(inds) : setTree(acc, n, concat(inds, [i]));
+                    None() : setTree(acc, n, [i]);
+                } 
+              )
+        foldi(arr, [], \i, acc, a ->
+                switch(lookupTree(mt, m-a)){
+                    Some(is) : concat(acc, map(is, \j -> Pair(i, j)));
+                    None() : acc;
+                }
+             )
+}
+
+main() {
+    arr = [10, 8, 1, 0, 3];
+    m = 11;
+    println(inds2(arr,m));
+}

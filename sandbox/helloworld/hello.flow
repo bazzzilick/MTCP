@@ -1,0 +1,38 @@
+import runtime;
+
+main(){
+
+    println("Hello, world!");
+
+    
+    a : [int] = [flow(1), 2];
+    //b : [int];
+    b = [3, 4];
+
+    big = concat(a, b);
+    assert(big == [1,2,3,4], "Error: Big is not big");
+
+    c = big[2];
+    println(c);
+    /*
+    //map & mapi
+    bigger = map(big, \i -> i*i);
+    println(bigger);
+    doubleEvenBigger = mapi(bigger, \i, v -> if((i % 2) == 0) v*2 else v);
+    println(doubleEvenBigger);
+
+    //findi
+    names = ["Egor", "Maria", "Olga", "Konstantin"];
+    i1 = findi(names, \name -> if (name == "Olga") true else false); 
+    i2 = findi(names, \name -> if (name == "Gordey") true else false);
+    println(i1);
+    println(i2); 
+
+    //fold sum
+    println(fold(doubleEvenBigger, 0, \x, y -> x + y))
+
+    //fold max
+    println(fold(doubleEvenBigger, 0, \x, y -> if (y > x) y else x));
+
+    */
+}

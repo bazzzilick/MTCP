@@ -1,0 +1,50 @@
+import string;
+
+fib1(n : int) -> [int] {
+    
+    if (n < 1) [0]                   
+    else
+        if (n == 1) [0, 1]
+        else {
+            tmp = fib1(n-1);
+            concat(tmp, [tmp[n-1] + fib1(n-2)[n-2]]); 
+        }
+}
+
+fibTail(n : int, a : int, b : int, tmp : [int]) -> [int] {
+    if (n < 1) concat(tmp, [a])
+    else fibTail(n-1, b, a+b, concat(tmp, [a]))
+}
+
+fib2(n : int) -> [int] {
+    fibTail(n, 0, 1, []);
+}
+
+fibRef(n: int, arr: ref [int]) -> [int] {
+    if (n < 1) {
+        refArrayPush(arr, 0);
+        ^arr;
+    } else 
+        if (n == 1) {
+            refArrayPush(arr, 0);
+            refArrayPush(arr, 1);
+            ^arr;
+        } else {
+            fibRef(n-1, arr);
+            refArrayPush(arr, ^arr[n-1] + ^arr[n-2]);
+            ^arr;
+        }
+}
+
+fib3(n : int) -> [int] {
+    fibRef(n, ref []);
+}
+
+main(){
+
+    println("Hello, world!");
+    n = 7;
+    println(fib1(n));
+    println(fib2(n));
+    println(fib3(n));
+}
