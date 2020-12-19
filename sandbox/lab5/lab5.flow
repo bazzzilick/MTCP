@@ -1,17 +1,17 @@
 import string;
 import lingo/pegcode/driver;
-import sandbox/lab5/grammar;
+import sandbox/lab5/lab5grammar;
 
 arithGrammarOp: ref Maybe<[PegOp]> = ref None();
 
 initGrammar() {
 	onlyOnce(arithGrammarOp, \ -> {
-		compilePegGrammar("#include sandbox/lab5/lingo.lingo");
+		compilePegGrammar("#include sandbox/lab5/lab5lingo.lingo");
 	});
 }
 
 str(e : Expr) -> string {
-	swithc(e) {
+	switch(e) {
 		IntConst(c) : {
 			i2s(c);
 		}
@@ -40,11 +40,10 @@ val(e : Expr) -> int {
 
 main() {
 
-	result = parsic(initGrammar(), " 3 *    4 + 5 ", defaultPegActions);
+	result = parsic(initGrammar(), " 3 *   4 + 5 ", defaultPegActions);
 
 	println(result);
 	println(str(result));
 	println(val(result));
-	
 	quit(0);
 }

@@ -1,0 +1,95 @@
+import string;
+import lingo/pegcode/driver;
+
+IntConst : (value : int);
+Mul : (left : Expr, right : Expr);
+Add : (left : Expr, right : Expr);
+Expr ::= IntConst, Mul, Add;
+
+arithGrammarOp: ref Maybe<[PegOp]> = ref None();
+RPNGrammarOp: ref Maybe<[PegOp]> = ref None();
+
+initRPNGrammar() {
+	onlyOnce(RPNGrammarOp, \ -> {
+		compilePegGrammar("#include sandbox/lab6/lab6lingo.lingo");
+	});
+}
+
+initExprGrammar() {
+	onlyOnce(arithGrammarOp, \ -> {
+		compilePegGrammar("#include sandbox/lab5/lab5lingo.lingo");
+	});
+}
+
+str(e : Expr) -> string {
+	switch(e) {
+		IntConst(c) : {
+			i2s(c);
+		}
+		Mul(l, r) : {
+			"(" + str(l) + " * " + str(r) + ")";
+		}
+		Add(l, r) : {
+			"(" + str(l) + " + " + str(r) + ")";
+		}
+	}
+}
+
+val(e : Expr) -> int {
+	switch(e) {
+		IntConst(c) : {
+			c;
+		}
+		Mul(l, r) : {
+			val(l) * val(r);
+		}
+		Add(l, r) : {
+			val(l) + val(r);
+		}
+	}
+}
+
+strRPN(e : Expr) -> string {
+	switch(e) {
+		IntConst(c) : {
+			i2s(c);
+		}
+		Mul(l, r) : {
+			"* " + strRPN(l) + " " + strRPN(r);
+		}
+		Add(l, r) : {
+			"+ " + strRPN(l) + " " + strRPN(r);
+		}
+	}
+}
+
+parse(op: [PegOp], s : string) -> Expr {
+	parsic(op, s, defaultPegActions);
+}
+
+parseExpr(s : string) -> Expr {
+	parse(initExprGrammar(), s);
+}
+
+parseRPN(s : string) -> Expr {
+	parse(initRPNGrammar(), s);
+}
+
+arith2rpn(s : string) -> string {
+	result = parseExpr(s); 
+	println(result);
+	strRPN(result);
+}
+
+rpn2arith(s : string) -> string {
+	result = parseRPN(s);
+	println(result);
+	str(result);
+}
+
+main() {
+	println(arith2rpn("3 + 4 * 5"));
+	println(rpn2arith("+ 3 * 4 5"));
+
+	quit(0);
+}
