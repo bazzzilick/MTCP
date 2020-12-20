@@ -1,0 +1,10 @@
+expr = sum|mul|sub|div|minus|int;
+sum = ws "(" ws expr:left ws "+" ws expr:right ws ")" ws {Sum(:left, :right)};
+mul = ws "(" ws expr:left ws "*" ws expr:right ws ")" ws {Mul(:left,:right)};
+sub = ws "(" ws expr:left ws "-" ws expr:right ws ")" ws {Sub(:left, :right)};
+div = ws "(" ws expr:left ws "/" ws expr:right ws ")" ws {Div(:left, :right)};
+neg = ws "(" ws "-" ws expr:e ws ")" ws {Neg(:e)};
+int = ws digit+$d ws {IntConst(s2i($d))} | ws var$d ws {Var($d)};
+digit = '0'-'9';
+var = 'a'-'z';
+ws = " "* | "\t";
