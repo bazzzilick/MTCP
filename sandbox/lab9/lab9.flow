@@ -1,0 +1,293 @@
+import string;
+import math/math;
+import ds/tree;
+import lingo/pegcode/driver;
+
+arithGrammarOp : ref Maybe<[PegOp]> = ref None();
+
+initGrammar() {
+	onlyOnce(arithGrammarOp, \ -> {
+		compilePegGrammar("#include sandbox/lab9/lab9lingo.lingo");
+	});
+}
+
+
+Rational(num: int, den: int);
+
+rat2str(e: Rational) -> string {
+    if (e.den == 1) {
+        i2s(e.num);
+    } else {
+        concatStrings([i2s(e.num), "/", i2s(e.den)]);
+    }
+}
+
+str2exp(str : string) -> Expr {
+    parsic(initGrammar(), str, defaultPegActions);
+}
+
+exp2str(expr : Expr) -> string {
+    switch (expr) {
+        Sum(l, r): { "(" + exp2str(l) + "+" + exp2str(r) + ")"; }
+        Mul(l, r): { "(" + exp2str(l) + "*" + exp2str(r) + ")"; }
+        Sub(l, r): { "(" + exp2str(l) + "-" + exp2str(r) + ")"; }
+        Div(l, r): { "(" + exp2str(l) + "/" + exp2str(r) + ")"; }
+        Neg(e): { "-" + exp2str(e); }
+        RatConst(c): { rat2str(c); }
+        IntConst(c): { i2s(c); }
+        Var(name): { name; }
+    }
+}
+
+Expr ::= Var, IntConst, RatConst, Neg, Div, Sub, Mul, Sum;
+Var : (name : string);
+IntConst : (value : int);
+RatConst : (value : Rational);
+Neg : (e : Expr);
+Div : (left : Expr, right : Expr);
+Sub : (left: Expr, right : Expr);
+Mul : (left : Expr, right : Expr);
+Sum : (left : Expr, right : Expr);
+
+mulSimplify(l : Expr, r : Expr) -> Expr {
+	if (l == IntConst(0) || r == IntConst(0)) {IntConst(0)} 
+    else 
+		if (l == IntConst(1)) {r}
+    	else 
+			if (r == IntConst(1)) {l} 
+            else {Mul(l, r)}
+}
+
+divSimplify(l : Expr, r : Expr) -> Expr {
+	if (l == r) {IntConst(1)}
+    else 
+		if (r == IntConst(1)) {l} 
+        else {Div(l, r)}
+}
+
+sumSimplify(l : Expr, r : Expr) -> Expr {
+	if (l == IntConst(0) && r == IntConst(0)) {IntConst(0)} 
+    else 
+		if (l == IntConst(0)) {r}
+    	else 
+			if (r == IntConst(0)) {l}
+    		else {Sum(l, r)}
+}
+
+subSimplify(l : Expr, r : Expr) -> Expr {
+	if (l == IntConst(0) && r == IntConst(0)) {IntConst(0)} 
+    else 
+		if (l == r) {IntConst(0)}
+        else 
+			if (r == IntConst(0)) {l}
+            else 
+				if (l == IntConst(0)) {Neg(r)}
+            	else {Sub(l, r)}
+}
+
+simplify(e : Expr) -> Expr {
+    
+    switch(e) {
+		Var(x): Var(x);
+		IntConst(c): IntConst(c);
+		RatConst(c): RatConst(c);
+		Neg(r): Neg(simplify(r));
+		Div(l, r) : {
+			leftSimple = simplify(l);
+			rightSimple = simplify(r);
+			divSimplify(leftSimple, rightSimple);
+		}
+		Sub(l, r) : {
+			leftSimple = simplify(l);
+			rightSimple = simplify(r);
+			subSimplify(leftSimple, rightSimple);
+		}
+		Mul(l, r) : {
+			leftSimple = simplify(l);
+			rightSimple = simplify(r);
+			mulSimplify(leftSimple, rightSimple);
+		}
+		Sum(l, r) : {
+			leftSimple = simplify(l);
+			rightSimple = simplify(r);
+			sumSimplify(leftSimple, rightSimple);
+		}
+    }
+}
+
+sum2rat(l : Expr, r : Expr) -> Expr {
+    
+    switch (l) {
+        Div(l1, r1) : {
+            switch (r) {
+                Div(l2, r2) : {
+                    Div(Sum(Mul(l1, r2), Mul(l2, r1)), Mul(r1, r2));
+                }
+                default : {
+                    Div(Sum(l1, Mul(r1, r)), r1);
+                }
+            }
+        }
+        default : {
+            switch (r) {
+                Div(l2, r2) : {
+                    Div(Sum(Mul(l, r2), l2), r2);
+                }
+                default : {
+                    Sum(l, r);    
+                }
+            }
+        }
+    }
+}
+
+sub2rat(l : Expr, r : Expr) -> Expr {
+    
+    switch (l) {
+        Div(l1, r1) : {
+            switch (r) {
+                Div(l2, r2) : {
+                    Div(Sub(Mul(l1, r2), Mul(l2, r1)), Mul(r1, r2));
+                }
+                default : {
+                    Div(Sub(l1, Mul(r1, r)), r1);
+                }
+            }
+        }
+        default : {
+            switch (r) {
+                Div(l2, r2) : {
+                    Div(Sub(Mul(l, r2), l2), r2);
+                }
+                default : {
+                    Sub(l, r);    
+                }
+            }
+        }
+    }
+}
+
+mul2rat(l : Expr, r : Expr) -> Expr {
+    
+    switch (l) {
+        Div(l1, r1) : {
+            switch (r) {
+                Div(l2, r2) : {
+                    Div(Mul(l1, l2), Mul(r1, r2));
+                }
+                default : {
+                    Div(Mul(l1, r), r1);
+                }
+            }
+        }
+        default : {
+            switch (r) {
+                Div(l2, r2) : {
+                    Div(Mul(l, l2), r2);
+                }
+                default : {
+                    Mul(l, r);    
+                }
+            }
+        }
+    }
+}                    
+
+div2rat(l : Expr, r : Expr) -> Expr {
+    
+    switch (l) {
+        Div(l1, r1) : {
+            switch (r) {
+                Div(l2, r2) : {
+                    Div(Mul(l1, r2), Mul(r1, l2));
+                }
+                default : {
+                    Div(l1, Mul(r1, r));
+                }
+            }
+        }
+        default : {
+            switch (r) {
+                Div(l2, r2) : {
+                    Div(Mul(l, r2), l2);
+                }
+                default : {
+                    Div(l, r);    
+                }
+            }
+        }
+    }
+}   
+
+exp2rat(e : Expr) -> Expr {
+
+    switch (e) {
+        Var(x) : Div(Var(x), IntConst(1));
+		IntConst(c) : Div(IntConst(c), IntConst(1));
+		RatConst(c) : Div(IntConst(c.num), IntConst(c.den));
+		Neg(r) : Neg(exp2rat(r));
+        Sum(l, r) : { 
+            leftRat = exp2rat(l);
+			rightRat = exp2rat(r);
+			sum2rat(leftRat, rightRat); 
+        }
+        Mul(l, r) : { 
+            leftRat = exp2rat(l);
+			rightRat = exp2rat(r);
+			mul2rat(leftRat, rightRat); 
+        }
+        Sub(l, r) : { 
+            leftRat = exp2rat(l);
+			rightRat = exp2rat(r);
+			sub2rat(leftRat, rightRat); 
+        }
+        Div(l, r) : { 
+            leftRat = exp2rat(l);
+			rightRat = exp2rat(r);
+			div2rat(leftRat, rightRat); 
+        }
+    }
+}
+
+main() {
+	
+	/*vars1 : Tree<string, Rational> = setTree(makeTree(), "x", Rational(1, 2));
+	vars2 = setTree(vars1, "y", Rational(2, 1));
+	vars3 = setTree(vars2, "z", Rational(2, 5));*/
+
+	//str = "((x + y) * (z + 1))";
+    // (((1/2) + (2/1)) * ((2/5) + 1)) = ((5/2) * (7/5)) = 7/2
+
+    //str = "((x + y) * (z + ((1 - 0) * (1 / 1))))";
+    // (((1/2) + (2)) * ((2/5) + 1)) == ((5/2) * (7/5)) == 7/2
+
+	str1 = "((a / b) + c)";
+	println("exp:");
+	println(str1);
+    expr1 = exp2rat(str2exp(str1));
+    println("exp2rat:");
+    println(exp2str(expr1));
+    println("exp2rat and simplified:");
+    println(exp2str(simplify(expr1)));
+    println("");
+
+	str2 = "((a/b)+(c/d))";
+	println("exp:");
+	println(str2);
+    expr2 = exp2rat(str2exp(str2));
+    println("exp2rat:");
+    println(exp2str(expr2));
+    println("exp2rat and simplified:");
+    println(exp2str(simplify(expr2)));
+    println("");
+
+    str3 = "(((a/b)+(45/x))/((c/e)-(12+(q*(p/t)))))";
+	println("exp:");
+	println(str3);
+    expr3 = exp2rat(str2exp(str3));
+    println("exp2rat:");
+    println(exp2str(expr3));
+    println("exp2rat and simplified:");
+    println(exp2str(simplify(expr3)));
+    println("");
+}
