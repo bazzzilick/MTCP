@@ -1,0 +1,199 @@
+import string;
+import math/math;
+import ds/tree;
+import lingo/pegcode/driver;
+
+arithGrammarOp : ref Maybe<[PegOp]> = ref None();
+
+initGrammar() {
+	onlyOnce(arithGrammarOp, \ -> {
+		compilePegGrammar("#include sandbox/lab10/lab10lingo.lingo");
+	});
+}
+
+str2exp(str : string) -> Expr {
+    parsic(initGrammar(), str, defaultPegActions);
+}
+
+exp2str(expr : Expr) -> string {
+    switch (expr) {
+        Sum(l, r): { "(" + exp2str(l) + "+" + exp2str(r) + ")"; }
+        Mul(l, r): { "(" + exp2str(l) + "*" + exp2str(r) + ")"; }
+        Sub(l, r): { "(" + exp2str(l) + "-" + exp2str(r) + ")"; }
+        Div(l, r): { "(" + exp2str(l) + "/" + exp2str(r) + ")"; }
+        Neg(e): { "-" + exp2str(e); }
+        IntConst(c): { i2s(c); }
+        Var(name): { name; }
+    }
+}
+
+Expr ::= Var, IntConst, Neg, Div, Sub, Mul, Sum;
+Var : (name : string);
+IntConst : (value : int);
+Neg : (e : Expr);
+Div : (left : Expr, right : Expr);
+Sub : (left: Expr, right : Expr);
+Mul : (left : Expr, right : Expr);
+Sum : (left : Expr, right : Expr);
+
+Transform(from : Expr, to : Expr);
+
+transform(from : string, to : string) -> Transform {
+    Transform(str2exp(from), str2exp(to));
+}
+
+transformations = [
+    transform("(x + 0)", "x"),
+    transform("(x * 1)", "x"),
+    transform("(x - x)", "0"),
+    transform("(0 * x)", "0"), 
+    transform("((x * a) + (x * b))", "(x * (a + b))"),
+    transform("(x + x)", "(2 * x)"),
+    transform("((x * x) - (y * y))", "((x + y) * (x - y))")
+];
+
+MatchResult(result : bool, context : Tree<string, Expr>);
+
+matchCheck (e1 : Expr, e2 : Expr, context : Tree<string, Expr>) -> MatchResult {
+    switch (e1) {
+        IntConst(val1) : {
+            switch (e2) {
+                IntConst(val2) : MatchResult(val1 == val2, context);
+                default : MatchResult(false, context);
+            }
+        }
+        Sum(l1, r1) : {
+            switch (e2) {
+                Sum(l2, r2) : {
+                    result1 = matchCheck(l1, l2, context);
+                    if (result1.result == false) result1
+                    else matchCheck(r1, r2, result1.context);
+                }
+                default : MatchResult(false, context);
+            }
+        }
+        Mul(l1, r1) : {
+            switch (e2) {
+                Mul(l2, r2) : {
+                    result1 = matchCheck(l1, l2, context);
+                    if (result1.result == false) result1
+                    else matchCheck(r1, r2, result1.context);
+                }
+                default : MatchResult(false, context);
+            }
+        }
+        Sub(l1, r1) : {
+            switch (e2) {
+                Sub(l2, r2) : {
+                    result1 = matchCheck(l1, l2, context);
+                    if (result1.result == false) result1
+                    else matchCheck(r1, r2, result1.context);
+                }
+                default : MatchResult(false, context);
+            }
+        }
+        Div(l1, r1) : {
+            switch (e2) {
+                Div(l2, r2) : {
+                    result1 = matchCheck(l1, l2, context);
+                    if (result1.result == false) result1
+                    else matchCheck(r1, r2, result1.context);
+                }
+                default : MatchResult(false, context);
+            }
+        }
+        Neg(arg1) : {
+            switch (e2) {
+                Neg(arg2) : matchCheck(arg1, arg2, context);
+                default : MatchResult(false, context);
+            }
+        }
+        Var(name) : {
+            switch(lookupTree(context, name)) {
+                None() : {
+                    MatchResult(true, setTree(context, name, e2));
+                }
+                Some(val) : {
+                    MatchResult(val == e2, context);
+                }
+            }
+        }
+    }
+}
+
+transformExprWithContext(e : Expr, context : Tree<string, Expr>) -> Expr {
+    switch(e) {
+        IntConst(val) : e;
+        Sum(l, r) : Sum(transformExprWithContext(l, context), transformExprWithContext(r, context));
+        Mul(l, r) : Mul(transformExprWithContext(l, context), transformExprWithContext(r, context));
+        Sub(l, r) : Sub(transformExprWithContext(l, context), transformExprWithContext(r, context));
+        Div(l, r) : Div(transformExprWithContext(l, context), transformExprWithContext(r, context));
+        Neg(arg) : Neg(transformExprWithContext(arg, context));
+        Var(name) : {
+            switch(lookupTree(context, name)) {
+                None() : {
+                    e;
+                }
+                Some(val) : {
+                    val;
+                }
+            }
+        }
+    }
+}
+
+tryTransformExprByRule(e : Expr, t : Transform) -> Expr {
+    matchResult = matchCheck(t.from, e, makeTree());
+    if (matchResult.result == false) e
+    else transformExprWithContext(t.to, matchResult.context);
+}
+
+transformExprByAllRules(e : Expr) -> Expr {
+    e1 = fold(transformations, e, \exp, t -> {
+        tryTransformExprByRule(exp, t);
+    });
+
+    switch (e1) {
+        IntConst(val) : e1;
+        Var(name) : e1;
+        Sum(l, r) : Sum(transformExprByAllRules(l), transformExprByAllRules(r));
+        Mul(l, r) : Mul(transformExprByAllRules(l), transformExprByAllRules(r));
+        Sub(l, r) : Sub(transformExprByAllRules(l), transformExprByAllRules(r));
+        Div(l, r) : Div(transformExprByAllRules(l), transformExprByAllRules(r));
+        Neg(arg) : Neg(transformExprByAllRules(arg));
+    }
+}
+
+maxTransform(e : Expr) -> Expr {
+    if (transformExprByAllRules(e) == e) e
+    else maxTransform(transformExprByAllRules(e));
+}
+
+
+main() {
+
+    str1 = "(((a * 2) + 0) + (a * 2))";
+	println("exp:");
+	println(str1);
+    expr1 = maxTransform(str2exp(str1));
+    println("transformExprByAllRules:");
+    println(exp2str(expr1));
+    println("");
+
+    str2 = "(((x + 0) * x) - ((3 * 1) * 3))";
+	println("exp:");
+	println(str2);
+    expr2 = maxTransform(str2exp(str2));
+    println("transformExprByAllRules:");
+    println(exp2str(expr2));
+    println("");
+
+    str3 = "((2 * y) + (x + x))";
+	println("exp:");
+	println(str3);
+    expr3 = maxTransform(str2exp(str3));
+    println("transformExprByAllRules:");
+    println(exp2str(expr3));
+    println("");
+
+}
